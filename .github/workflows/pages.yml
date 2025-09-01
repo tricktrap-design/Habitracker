@@ -1,59 +1,77 @@
 name: Deploy Vite site to GitHub Pages
 
-
 on:
-push:
-branches: ["main"]
-workflow_dispatch:
-
+  push:
+    branches: ["main"]
+  workflow_dispatch:
 
 permissions:
-contents: read
-pages: write
-id-token: write
-
+  contents: read
+  pages: write
+  id-token: write
 
 concurrency:
-group: "pages"
-cancel-in-progress: true
-
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
-build:
-runs-on: ubuntu-latest
-steps:
-- name: Checkout
-uses: actions/checkout@v4
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
 
-- name: Use Node.js
-uses: actions/setup-node@v4
-with:
-node-version: 20
-cache: 'npm'
+      - name: Install
+        run: npm ci
 
+      - name: Print vite + deps
+        run: |
+          npx vite --version || true
+          node -v
+          npm -v
+          cat package.json
 
-- name: Install
-run: npm ci
+      - name: Build
+        run: npm run build
 
+      - name: Show dist contents
+        run: |
+          echo "=== DIST TREE ==="
+          ls -la dist
+          echo "=== DIST/ASSETS ==="
+          ls -la dist/assets || true
+          echo "=== HEAD OF dist/index.html ==="
+          head -n 50 dist/index.html || true
 
-- name: Build
-run: npm run build
+      - name: Guard: no /src/ in built index.html
+        run: |
+          if grep -n "/src/" dist/index.html; then
+            echo "ERROR: dist/index.html still references /src/*. This means Vite didn't rewrite the entry."
+            exit 1
+          fi
+          if ! grep -n "/Habitracker/assets/" dist/index.html; then
+            echo "ERROR: dist/index.html does not reference /Habitracker/assets/. Check vite.config.js base."
+            exit 1
+          fi
 
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
 
-- name: Upload artifact
-uses: actions/upload-pages-artifact@v3
-with:
-path: ./dist
-
-
-deploy:
-needs: build
-runs-on: ubuntu-latest
-environment:
-name: github-pages
-url: ${{ steps.deployment.outputs.page_url }}
-steps:
-- name: Deploy to GitHub Pages
-id: deployment
-uses: actions/deploy-pages@v4
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
