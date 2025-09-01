@@ -1,21 +1,15 @@
-name: Deploy Vite site to GitHub Pages
+name: Build & Publish to gh-pages
 
 on:
   push:
-    branches: ["main"]          # change if your default branch isn't 'main'
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
+  contents: write    # needed to push to gh-pages
 
 jobs:
-  build:
+  build-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,7 +19,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          # omit cache because there's no lockfile yet
 
       - name: Install deps (no lockfile)
         run: npm install --no-fund --no-audit
@@ -33,26 +26,9 @@ jobs:
       - name: Build
         run: npm run build
 
-      # (Optional but helpful) dump a bit of dist to confirm assets path
-      - name: Inspect dist
-        run: |
-          echo "== dist =="
-          ls -la dist
-          echo "== dist/index.html (head) =="
-          head -n 40 dist/index.html || true
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy to gh-pages branch
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          path: ./dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          branch: gh-pages
+          folder: dist
+          clean: true
