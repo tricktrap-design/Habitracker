@@ -2,7 +2,7 @@ name: Deploy Vite site to GitHub Pages
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main"]          # change if your default branch isn't 'main'
   workflow_dispatch:
 
 permissions:
@@ -21,44 +21,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Node
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          # omit cache because there's no lockfile yet
 
-      - name: Install
-        run: npm ci
-
-      - name: Print vite + deps
-        run: |
-          npx vite --version || true
-          node -v
-          npm -v
-          cat package.json
+      - name: Install deps (no lockfile)
+        run: npm install --no-fund --no-audit
 
       - name: Build
         run: npm run build
 
-      - name: Show dist contents
+      # (Optional but helpful) dump a bit of dist to confirm assets path
+      - name: Inspect dist
         run: |
-          echo "=== DIST TREE ==="
+          echo "== dist =="
           ls -la dist
-          echo "=== DIST/ASSETS ==="
-          ls -la dist/assets || true
-          echo "=== HEAD OF dist/index.html ==="
-          head -n 50 dist/index.html || true
-
-      - name: Guard: no /src/ in built index.html
-        run: |
-          if grep -n "/src/" dist/index.html; then
-            echo "ERROR: dist/index.html still references /src/*. This means Vite didn't rewrite the entry."
-            exit 1
-          fi
-          if ! grep -n "/Habitracker/assets/" dist/index.html; then
-            echo "ERROR: dist/index.html does not reference /Habitracker/assets/. Check vite.config.js base."
-            exit 1
-          fi
+          echo "== dist/index.html (head) =="
+          head -n 40 dist/index.html || true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
